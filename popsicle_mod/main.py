@@ -5,7 +5,7 @@ Executes the given filenames, which are read in with the given encoding.
 """
 
 import sys
-from popsicle import parser
+from . import parser
 
 def main(args):
     if len(args) < 2:

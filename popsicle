@@ -1,0 +1,4 @@
+#!/usr/bin/env python
+import sys
+from popsicle_mod.main import main
+main(sys.argv[1:])
