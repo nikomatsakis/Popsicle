@@ -39,12 +39,25 @@ def tokenize(pos, column, u_text):
     while column < len(u_text):
         u_char = u_text[column]
         
-        if is_word(u_char):
+        if u_char == u'\\' and column + 1 < len(u_text):
+            u_next_char = u_text[column + 1]
+            yield Token('OP', pos.with_column(column+1), u_next_char)
+            column += 2
+        
+        elif is_word(u_char):
             (column, token) = extract_while('WORD', column, is_word)
             yield token
             
+        elif u_char == u'{':
+            yield Token('LCURLY', pos.with_column(column), u_char)
+            column += 1
+            
+        elif u_char == u'}':
+            yield Token('RCURLY', pos.with_column(column), u_char)
+            column += 1
+            
         elif u_char == u"_":
-            yield Token('UNDER', pos.with_column(column), u"_")
+            yield Token('UNDER', pos.with_column(column), u_char)
             column += 1
             
         elif u_char == u'"':
@@ -59,9 +72,15 @@ def tokenize(pos, column, u_text):
             (column, token) = extract_wrapped('LATEX', column, u'$')
             yield token
     
-        else:
-            yield Token('OP', pos.with_column(column), u_char)
-            column += 1
+        elif u_char == u'`':
+            (column, token) = extract_wrapped('MACRO', column, u'`')
+            yield token
+    
+        else: 
+            # Everything else is an OPerator.  Accumulate multiple instances of same char
+            # so that "..." comes out as a single OP, for example.
+            (column, token) = extract_while('OP', column, lambda u: u == u_char)
+            yield token
             
     yield Token('EOL', pos.with_column(column), u"")
     
@@ -99,10 +118,10 @@ class ItemParser(object):
         return over
         
     def part(self):
-        if self.token.u_text == u'{':
+        if self.token.kind == 'LCURLY':
             node = ast.Seq(self.token.pos, [])
             self.next()
-            while self.token.u_text != u'}':
+            while self.token.kind != 'RCURLY':
                 if self.token.kind == 'EOL':
                     raise Expected(self.token.pos, self.token, [u'}'])
                 node.items.append(self.item())
@@ -121,12 +140,12 @@ re_empty = re.compile(ur"\s*$")
 re_comment = re.compile(ur"#.*$")
 re_section = re.compile(ur"\s*\[(.*)\]\s*$")
 re_terminals = re.compile(ur"> Terminals (.*)")
-re_writetex = re.compile(ur'> WriteTex "([^"]*)" "([^"]*)"')
-re_nonterm = re.compile(ur"([\w-]+)\s*=\s*(.*)")
-re_nonterm_cont = re.compile(ur"\s*=\s*(.*)$")
+re_write = re.compile(ur'> Write (grammar|type rules|dump) from "([^"]*)" to "([^"]*)"$')
+re_nonterm = re.compile(ur"([\w-]+)\s*=\s*(.+?)\s*(?:\\\\\\\\(.*))?$")
+re_nonterm_cont = re.compile(ur"\s*=\s*(.+?)\s*(?:\\\\\\\\(.*))?$")
 re_typerule = re.compile(ur"([\w-]+):\s*$")
+re_typerule_cont = re.compile(ur"\s+(.+?)\s*(?:\\\\\\\\(.*))?$")
 re_sep = re.compile(ur"\s*---+\s*$")
-re_cont = re.compile(ur"\s+(.*)$")
 
 class LineParser(object):
     
@@ -147,18 +166,22 @@ class LineParser(object):
     def has_line(self):
         return self.pos is not None
         
-    def is_continuation_line(self):
-        return re_cont.match(self.u_text) is not None
-        
     def parse_seq(self, span):
         (column, _) = span
         tokens = tokenize(self.pos, column, self.u_text)
         node = ast.Seq(self.pos, ItemParser(tokens).till_eol())
         return node
         
-    def parse_nonterm(self, u_name, rhs_span):
+    def parse_line_mo(self, mo, baseidx):
+        rhs_span = mo.span(baseidx)
+        opt_label = mo.group(baseidx + 1)
+        u_label = opt_label.strip() if opt_label is not None else None
+        return ast.Line(self.pos, self.parse_seq(rhs_span), u_label)
+        
+    def parse_nonterm(self, mo):
+        u_name = mo.group(1).strip()
         node = ast.NonterminalDecl(self.pos, u_name)
-        node.expansions.append(self.parse_seq(rhs_span))
+        node.expansions.append(self.parse_line_mo(mo, 2))
         self.next_line()
         
         # Load additional RHS:
@@ -166,10 +189,13 @@ class LineParser(object):
             mo = re_nonterm_cont.match(self.u_text)
             if not mo:
                 break
-            node.expansions.append(self.parse_seq(mo.span(1)))
+            node.expansions.append(self.parse_line_mo(mo, 1))
             self.next_line()
+            
+        return node
         
-    def parse_type_rule(self, u_name):
+    def parse_type_rule(self, mo):
+        u_name = mo.group(1).strip()
         node = ast.TypeRule(self.pos, u_name)
         self.next_line()
         
@@ -178,24 +204,24 @@ class LineParser(object):
             if re_sep.match(self.u_text): 
                 self.next_line()
                 break
-            mo = re_cont.match(self.u_text)
+            mo = re_typerule_cont.match(self.u_text)
             if not mo:
                 break
-            node.premises.append(self.parse_seq(mo.span(1)))
+            node.premises.append(self.parse_line_mo(mo, 1))
             self.next_line()
             
         # Load the conclusion:
         while self.has_line():
-            mo = re_cont.match(self.u_text)
+            mo = re_typerule_cont.match(self.u_text)
             if not mo:
                 break
-            node.conclusions.append(self.parse_seq(mo.span(1)))
+            node.conclusions.append(self.parse_line_mo(mo, 1))
             self.next_line()
         
         return node
         
     def parse(self):
-        ast_file = ast.File(ast.Position(self.filename, 1, 1))
+        ast_file = ast.Section(ast.Position(self.filename, 1, 1), u'Root')
         ast_section = ast_file
     
         self.next_line()
@@ -209,9 +235,9 @@ class LineParser(object):
     
             mo = re_section.match(self.u_text)
             if mo: 
-                u_name = mo.group(1)
+                u_name = mo.group(1).strip()
                 ast_section = ast.Section(self.pos, u_name)
-                ast_file.members.append(ast_section)
+                ast_file.add_member(ast_section)
                 self.next_line()
                 continue
         
@@ -219,27 +245,30 @@ class LineParser(object):
             if mo:
                 names_u = mo.group(1).split()
                 node = ast.TerminalDecl(self.pos, names_u)
-                ast_section.members.append(node)
+                ast_section.add_member(node)
                 self.next_line()
                 continue
                 
-            mo = re_writetex.match(self.u_text)
+            mo = re_write.match(self.u_text)
             if mo:
-                node = ast.WriteTex(self.pos, mo.group(1), mo.group(2))
-                ast_section.members.append(node)
+                kind = mo.group(1).strip().encode("ASCII")
+                u_section = mo.group(2).strip()
+                u_filenm = mo.group(3).strip()
+                node = ast.Write(self.pos, kind, u_section, u_filenm)
+                ast_section.add_member(node)
                 self.next_line()
                 continue
 
             mo = re_nonterm.match(self.u_text)
             if mo:
-                node = self.parse_nonterm(mo.group(1), mo.span(2))
-                ast_section.members.append(node)
+                node = self.parse_nonterm(mo)
+                ast_section.add_member(node)
                 continue
                 
             mo = re_typerule.match(self.u_text)
             if mo:
-                node = self.parse_type_rule(mo.group(1))
-                ast_section.members.append(node)                    
+                node = self.parse_type_rule(mo)
+                ast_section.add_member(node)                    
                 continue
             
             raise Expected(self.pos, self.u_text, ['Valid Declaration'])

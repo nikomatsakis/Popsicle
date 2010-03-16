@@ -16,8 +16,9 @@ def main(args):
     encoding = args[0]
     for filename in args[1:]:
         try:
-            ast = parser.parse_file(filename, encoding)
-            ast.serialize(sys.stdout)
+            node = parser.parse_file(filename, encoding)
+            #node.serialize(sys.stdout)
+            node.execute()
         except parser.Expected, e:
             sys.stderr.write(str(e))
             sys.stderr.write("\n")
