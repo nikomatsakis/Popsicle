@@ -425,7 +425,8 @@ class Whitespace(TextAst):
     r"Whitespace: [u_text]"
 
     def write_math_latex(self, out, ctx):
-        # Note: \! is a NEGATIVE space.  Wacky.
-        if self.u_text == u" ": out.write("\,")
-        if self.u_text == u"  ": out.write("\:")
-        if self.u_text == u"    ": out.write("\;")
+        # Latex spaces: \!, \, \: \;, \quad, \qquad
+        if self.u_text == u" ": out.write("\:")
+        if self.u_text == u"  ": out.write("\;")
+        if self.u_text == u"   ": out.write("\quad")
+        if self.u_text == u"    ": out.write("\qquad")
