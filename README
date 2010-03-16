@@ -1,1 +1,14 @@
-Popsicle: a type system pre-processor for LaTeX
+Popsicle: a type system pre-processor for LaTeX.  Sorry, documentation is sparse
+as this is mostly intended for my internal use (though I would be happy for others to
+play with it).  Soon I'll publish a sample file or two.
+
+For now, though, you can install it using:
+
+    python setup.py install
+    
+You can then create popsicle files (I use the extension .pop, but it doesn't matter).
+I usually make the file itself executable and then add a line like:
+
+    #!/usr/bin/env popsicle UTF-8
+    
+to the top.  Now, executing the file will cause LaTeX to be emitted.
