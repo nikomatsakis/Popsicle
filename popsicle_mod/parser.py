@@ -20,10 +20,12 @@ class Expected(Exception):
         return "%s:%s:%s: Found %r, expected one of %r" % (
             self.pos.filename, self.pos.line, self.pos.column, self.found, self.texts_u)
         
-def tokenize(pos, column, u_text):
+def tokenize(pos, span, u_text):
+    (column, column_max) = span
+    
     def extract_while(kind, start, pred):
         end = start
-        while end < len(u_text) and pred(u_text[end]):
+        while end < column_max and pred(u_text[end]):
             end += 1
         return (end, Token(kind, pos.with_column(start), u_text[start:end]))
         
@@ -35,11 +37,11 @@ def tokenize(pos, column, u_text):
         
     def is_word(u_char):
         return u_char.isalpha() or u_char.isdigit()
-    
-    while column < len(u_text):
+        
+    while column < column_max:
         u_char = u_text[column]
         
-        if u_char == u'\\' and column + 1 < len(u_text):
+        if u_char == u'\\' and column + 1 < column_max:
             u_next_char = u_text[column + 1]
             yield Token('OP', pos.with_column(column+1), u_next_char)
             column += 2
@@ -140,12 +142,14 @@ re_empty = re.compile(ur"\s*$")
 re_comment = re.compile(ur"#.*$")
 re_section = re.compile(ur"\s*\[(.*)\]\s*$")
 re_terminals = re.compile(ur"> Terminals (.*)")
+re_heading = re.compile(ur"> Heading (.*)")
 re_write = re.compile(ur'> Write (grammar|type rules|dump) from "([^"]*)" to "([^"]*)"$')
-re_nonterm = re.compile(ur"([\w-]+)\s*=\s*(.+?)\s*(?:\\\\\\\\(.*))?$")
-re_nonterm_cont = re.compile(ur"\s*=\s*(.+?)\s*(?:\\\\\\\\(.*))?$")
+re_nonterm = re.compile(ur"([\w-]+)\s*=\s*(.*?)\s*(?:\\\\\\\\(.*))?$")
+re_nonterm_cont = re.compile(ur"\s*=\s*(.*?)\s*(?:\\\\\\\\(.*))?$")
 re_typerule = re.compile(ur"([\w-]+):\s*$")
-re_typerule_cont = re.compile(ur"\s+(.+?)\s*(?:\\\\\\\\(.*))?$")
+re_typerule_cont = re.compile(ur"\s+(.*?)\s*(?:\\\\\\\\(.*))?$")
 re_sep = re.compile(ur"\s*---+\s*$")
+re_blank = re.compile(ur"\s*$")
 
 class LineParser(object):
     
@@ -167,8 +171,7 @@ class LineParser(object):
         return self.pos is not None
         
     def parse_seq(self, span):
-        (column, _) = span
-        tokens = tokenize(self.pos, column, self.u_text)
+        tokens = tokenize(self.pos, span, self.u_text)
         node = ast.Seq(self.pos, ItemParser(tokens).till_eol())
         return node
         
@@ -201,7 +204,7 @@ class LineParser(object):
         
         # Load the premises:
         while self.has_line():
-            if re_sep.match(self.u_text): 
+            if re_sep.match(self.u_text) or re_blank.match(self.u_text):
                 self.next_line()
                 break
             mo = re_typerule_cont.match(self.u_text)
@@ -212,6 +215,8 @@ class LineParser(object):
             
         # Load the conclusion:
         while self.has_line():
+            if re_blank.match(self.u_text):
+                break
             mo = re_typerule_cont.match(self.u_text)
             if not mo:
                 break
@@ -245,6 +250,15 @@ class LineParser(object):
             if mo:
                 names_u = mo.group(1).split()
                 node = ast.TerminalDecl(self.pos, names_u)
+                ast_section.add_member(node)
+                self.next_line()
+                continue
+                
+            mo = re_heading.match(self.u_text)
+            if mo:
+                u_latex = mo.group(1).strip()
+                latex = u_latex.encode("ASCII")
+                node = ast.Heading(self.pos, latex)
                 ast_section.add_member(node)
                 self.next_line()
                 continue

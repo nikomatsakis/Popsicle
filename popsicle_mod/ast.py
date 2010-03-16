@@ -4,84 +4,85 @@ import re, sys
 
 reserved_chars = u"|{}\\\"_'^`"
 math_translations = {
-    u'≠': r'\neq',
-    u'≤': r'\leq',
-    u'≥': r'\geq',
-    u'∪': r'\cup',
-    u'∩': r'\cap',
-    u'∀': r'\forall',
-    u'∃': r'\exists',
-    u'∄': r'\nexists',
-    u'∅': r'\emptyset',
-    u'⊦': r'\vdash',
-    u'⊧': r'\models',
-    u'⊑': r'\sqsubseteq',
-    u'⊏': r'\sqsubset',
-    u'⊆': r'\subseteq',
-    u'⊂': r'\subset',
-    u'⊒': r'\sqsupseteq',
-    u'⊐': r'\sqsupset',
-    u'⊇': r'\supseteq',
-    u'⊃': r'\supset',
-    u'∈': r'\in',
-    u'∉': r'\notin',
-    u'→': r'\rightarrow',
-    u'←': r'\leftarrow',
-    u'⇒': r'\Rightarrow',
-    u'⇐': r'\Lightarrow',
-    u'⊕': r'\oplus',
-    u'⊖': r'\ominus',
-    u'⊥': r'\bot',
-    u'⊤': r'\top',
-    u'×': r'\times',
-    u'\\': r'\setminus',
-    u'|': r'\mid',
-    u'...': r'\ldots',    
-    u'α': r'\alpha',
-    u'β': r'\beta',
-    u'γ': r'\gamma',
-    u'δ': r'\delta',
-    u'ε': r'\epsilon',
-    u'ζ': r'\zeta',
-    u'η': r'\eta',
-    u'θ': r'\theta',
-    u'ι': r'\iota',
-    u'κ': r'\kappa',
-    u'λ': r'\lambda',
-    u'μ': r'\mu',
-    u'ν': r'\nu',
-    u'ο': r'\omicron',
-    u'π': r'\pi',
-    u'ρ': r'\ro',
-    u'σ': r'\sigma',
-    u'τ': r'\tau',
-    u'φ': r'\phi',
-    u'χ': r'\xi',
-    u'ψ': r'\psi',
-    u'ω': r'\omega',
+    u'≠': '\\neq ',
+    u'≤': '\\leq ',
+    u'≥': '\\geq ',
+    u'∪': '\\cup ',
+    u'∩': '\\cap ',
+    u'∀': '\\forall ',
+    u'∃': '\\exists ',
+    u'∄': '\\nexists ',
+    u'∅': '\\emptyset ',
+    u'⊦': '\\vdash ',
+    u'⊧': '\\models ',
+    u'⊑': '\\sqsubseteq ',
+    u'⊏': '\\sqsubset ',
+    u'⊆': '\\subseteq ',
+    u'⊂': '\\subset ',
+    u'⊒': '\\sqsupseteq ',
+    u'⊐': '\\sqsupset ',
+    u'⊇': '\\supseteq ',
+    u'⊃': '\\supset ',
+    u'∈': '\\in ',
+    u'∉': '\\notin ',
+    u'→': '\\rightarrow ',
+    u'←': '\\leftarrow ',
+    u'⇒': '\\Rightarrow ',
+    u'⇐': '\\Lightarrow ',
+    u'⊕': '\\oplus ',
+    u'⊖': '\\ominus ',
+    u'⊥': '\\bot ',
+    u'⊤': '\\top ',
+    u'×': '\\times ',
+    u'\\': '\\setminus ',
+    u'|': '\\mid ',
+    u'α': '\\alpha ',
+    u'β': '\\beta ',
+    u'γ': '\\gamma ',
+    u'δ': '\\delta ',
+    u'ε': '\\epsilon ',
+    u'ζ': '\\zeta ',
+    u'η': '\\eta ',
+    u'θ': '\\theta ',
+    u'ι': '\\iota ',
+    u'κ': '\\kappa ',
+    u'λ': '\\lambda ',
+    u'μ': '\\mu ',
+    u'ν': '\\nu ',
+    u'ο': '\\omicron ',
+    u'π': '\\pi ',
+    u'ρ': '\\ro ',
+    u'σ': '\\sigma ',
+    u'τ': '\\tau ',
+    u'φ': '\\phi ',
+    u'χ': '\\xi ',
+    u'ψ': '\\psi ',
+    u'ω': '\\omega ',
     u'Α': r'A',
     u'Β': r'B',
-    u'Γ': r'\Gamma',
-    u'Δ': r'\Delta',
+    u'Γ': '\\Gamma ',
+    u'Δ': '\\Delta ',
     u'Ε': r'E',
     u'Ζ': r'Z',
     u'Η': r'H',
-    u'Θ': r'\Theta',
+    u'Θ': '\\Theta ',
     u'Ι': r'I',
     u'Κ': r'K',
-    u'Λ': r'\Lambda',
+    u'Λ': '\\Lambda ',
     u'Μ': r'M',
     u'Ν': r'N',
     u'Ο': r'O',
-    u'Π': r'\Pi',
+    u'Π': '\\Pi ',
     u'Ρ': r'P',
-    u'Σ': r'\Sigma',
+    u'Σ': '\\Sigma ',
     u'Τ': r'T',
-    u'Φ': r'\Phi',
+    u'Φ': '\\Phi ',
     u'Χ': r'X',
-    u'Ψ': r'\Psi',
-    u'Ω': r'\Omega'    
+    u'Ψ': '\\Psi ',
+    u'Ω': '\\Omega ',
 }
+
+u_escape = u"{}_"
 
 class Position(object):
     def __init__(self, filename, line, column):
@@ -107,19 +108,27 @@ class Context(object):
         self.root = root
         self.terminals = []
         self.nonterminals = []
+        self.sep = ""
         
     def math_char(self, u):
         if u in math_translations:
             return math_translations[u]
+        if u in u_escape:
+            return "\\" + u.encode("ASCII")
         return u.encode("ASCII")
+        
+    def multi(self, res):
+        return res.replace("...", "\ldots ")
         
     def math(self, u_text):
         "Convert to latex suitable for inclusion in a math context"
-        return "".join([self.math_char(u) for u in u_text])
+        return self.multi("".join([self.math_char(u) for u in u_text]))
         
     def plain_char(self, u):
         if u in math_translations:
             return "$" + math_translations[u] + "$"
+        if u in u_escape:
+            return "\\" + u.encode("ASCII")
         return u.encode("ASCII")
         
     def plain(self, u_text):
@@ -154,6 +163,10 @@ class Ast(object):
         
     def write_type_rule(self, out, ctx):
         "Writes a type rule into the grammar table, if appl."
+        return
+        
+    def write_heading(self, out, ctx):
+        "Writes a heading into the grammar table, if appl."
         return
         
     def serialize(self, out):
@@ -217,6 +230,7 @@ class Section(NamedAst):
             mem.append_context(ctx)
         
     def write_grammar(self, out, ctx):
+        self.write_heading(out, ctx)
         out.write("\\begin{tabular}{llll}\n")
         self.write_grammar_row(out, ctx)
         out.write("\\end{tabular}\n")
@@ -226,6 +240,8 @@ class Section(NamedAst):
             mem.write_grammar_row(out, ctx)
         
     def write_type_rules(self, out, ctx):
+        ctx.sep = ""
+        self.write_heading(out, ctx)
         out.write("\\begin{mathpar}\n")
         self.write_type_rule(out, ctx)
         out.write("\\end{mathpar}\n")
@@ -233,6 +249,20 @@ class Section(NamedAst):
     def write_type_rule(self, out, ctx):
         for mem in self.members:
             mem.write_type_rule(out, ctx)
+            
+    def write_heading(self, out, ctx):
+        for mem in self.members:
+            mem.write_heading(out, ctx)
+            
+class Heading(Ast):
+    r'> Heading [latex]'
+    
+    def __init__(self, pos, latex):
+        Ast.__init__(self, pos)
+        self.latex = latex
+        
+    def write_heading(self, out, ctx):
+        out.write(self.latex)
         
 class Write(Ast):
     r'> Write [kind] from "[u_section]" to "[u_filename]"'
@@ -267,13 +297,13 @@ class TerminalDecl(Ast):
         ctx.terminals.extend(self.names_u)
         
 class NonterminalDecl(NamedAst):
-    r"[u_name] = [expansions] \\\\ [label]"
+    r"[u_name] = [expansions]"
     def __init__(self, *args):
         NamedAst.__init__(self, *args)
         self.expansions = []
         
     def append_context(self, ctx):
-        ctx.terminals.append(self.u_name)
+        ctx.nonterminals.append(self.u_name)
     
     def write_grammar_row(self, out, ctx):
         out.write("%s & :=" % ctx.plain(self.u_name))
@@ -288,7 +318,7 @@ class NonterminalDecl(NamedAst):
             out.write("$")
             
             if expansion.u_label is not None:
-                out.write(" & %s \\\\" % ctx.plain(self.u_label))
+                out.write(" & %s \\\\" % ctx.plain(expansion.u_label))
                 sep = " & $\\mid$ & "
                 conc = ""
             else:
@@ -309,19 +339,21 @@ class TypeRule(NamedAst):
         if not lines:
             out.write("{}\n")
         else:
-            out.write("{")
+            out.write("{\n")
             for line in lines:
                 line.seq.write_math_latex(out, ctx)
                 out.write(r" \\")
                 if line.u_label:
                     out.write(r"\\")
                 out.write("\n")
-            out.write("}\n")
+            out.write("}")
         
     def write_type_rule(self, out, ctx):
+        out.write(ctx.sep)
         out.write("\\inferrule[%s]" % ctx.plain(self.u_name))
         self.write_part(out, ctx, self.premises)
         self.write_part(out, ctx, self.conclusions)
+        ctx.sep = "\n\\and\n"
     
 class Line(Ast):
     r"[seq] \\\\ [u_label]"
@@ -364,15 +396,18 @@ class Identifier(TextAst):
     r"Identifier: [u_text]"
     
     def write_math_latex(self, out, ctx):
-        out.write(ctx.math(self.u_text))
+        if self.u_text in ctx.terminals:
+            out.write("\\texttt{%s}" % ctx.plain(self.u_text))
+        elif len(self.u_text) == 1:
+            out.write(ctx.math(self.u_text))
+        else:
+            out.write("\\textit{%s}" % ctx.plain(self.u_text))
         
 class Quoted(TextAst):
     r'"[u_text]"'
     
     def write_math_latex(self, out, ctx):
-        out.write("\mathtt{")
-        out.write(self.u_text.encode("ASCII"))
-        out.write("}")
+        out.write("\\mathtt{%s}" % ctx.math(self.u_text))
         
 class Latex(TextAst):
     r"$[u_text]$"
@@ -390,4 +425,7 @@ class Whitespace(TextAst):
     r"Whitespace: [u_text]"
 
     def write_math_latex(self, out, ctx):
-        out.write(" ")
+        # Note: \! is a NEGATIVE space.  Wacky.
+        if self.u_text == u" ": out.write("\,")
+        if self.u_text == u"  ": out.write("\:")
+        if self.u_text == u"    ": out.write("\;")

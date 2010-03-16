@@ -1,0 +1,52 @@
+\begin{tabular}{llll}
+class & :=
+     & $\mathtt{class}\,\mathtt{c}\,(args)\,\mathtt{extends}\,ctors\,\{\,\mathtt{body}\,\}$ & \\
+body & :=
+     & $ghosts\,fields\,intervals\,locks\,hbs\,methods$ & \\
+arg & :=
+     & $\mathtt{ty}\,\mathtt{x}$ & \\
+ghost & :=
+     & $\mathtt{ghost}\,\mathtt{f}$ & \\
+field & :=
+     & $\mathtt{ty}\,\mathtt{f}\,\mathtt{guardedBy}\,\mathtt{path}$ & \\
+interval & :=
+     & $\mathtt{interval}\,\mathtt{f}(\mathtt{path})\,\mathtt{\{}\,lstmts\,\mathtt{\}}$ & \\
+lock & :=
+     & $\mathtt{path}\,\mathtt{locks}\,\mathtt{path}$ & \\
+hb & :=
+     & $\mathtt{path}\,\mathtt{->}\,\mathtt{path}$ & \\
+req & :=
+     & $\mathtt{path}\,\mathtt{rel}\,\mathtt{path}$ & \\
+path & :=
+     & $\mathtt{x}.\mathtt{fs}$ & \\
+rel & :=
+     & $\mathtt{wrel}$
+     $\mid$ $\mathtt{lockedBy}$
+     $\mid$ $\mathtt{trel}$ & \\
+wrel & :=
+     & $\mathtt{writableBy}$
+     $\mid$ $\mathtt{readableBy}$ & \\
+trel & :=
+     & $\mathtt{in}$
+     $\mid$ $\mathtt{inlineIn}$
+     $\mid$ $\mathtt{hb}$ & \\
+method & :=
+     & $\mathtt{ty}\,\mathtt{m}(args)\,reqs\,\mathtt{\{}\,lstmts\,\mathtt{\}}$ & \\
+lstmt & :=
+     & $\mathtt{x}:\,\mathtt{stmt}$ & \\
+stmt & :=
+     & $\mathtt{x}\,\mathtt{=}\,\mathtt{new}\,\mathtt{c}[\mathtt{fs}\mathtt{=}paths]\,(\mathtt{xs})$ &  \\
+     & $\mid$ & $\mathtt{x}\,\mathtt{=}\,\mathtt{x}.\mathtt{m}(\mathtt{xs})$ &  \\
+     & $\mid$ & $\mathtt{x}\,\mathtt{=}\,\mathtt{x}.\mathtt{f}$
+     $\mid$ $\mathtt{x}.\mathtt{f}\,\mathtt{=}\,\mathtt{x}$
+     $\mid$ $\mathtt{assert}\,\mathtt{x}\,\mathtt{writableBy}\,\mathtt{x}$
+     $\mid$ $\mathtt{assert}\,\mathtt{x}\,\mathtt{readableBy}\,\mathtt{x}$
+     $\mid$ $\mathtt{locks}\,\mathtt{xs}:\,\mathtt{\{}\,lstmts\,\mathtt{\}}$ & \\
+ty & :=
+     & $\mathtt{c}[wtyargs]$ & \\
+tyarg & :=
+     & $\mathtt{f}\,\mathtt{=}\,\mathtt{path}$
+     $\mid$ $\mathtt{f}\,\mathtt{wrel}\,\mathtt{path}$ & \\
+ctor & :=
+     & $\mathtt{c}\mathtt{(}paths\mathtt{)}$ & \\
+\end{tabular}
