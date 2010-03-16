@@ -108,6 +108,7 @@ class Context(object):
         self.root = root
         self.terminals = []
         self.nonterminals = []
+        self.macros = {}
         self.sep = ""
         
     def math_char(self, u):
@@ -296,6 +297,16 @@ class TerminalDecl(Ast):
     def append_context(self, ctx):
         ctx.terminals.extend(self.names_u)
         
+class MacroDecl(Ast):
+    r"> Macro [u_replace] [latex]"
+    def __init__(self, pos, u_replace, latex):
+        Ast.__init__(self, pos)
+        self.u_replace = u_replace
+        self.latex = latex
+        
+    def append_context(self, ctx):
+        ctx.macros[self.u_replace] = self.latex
+        
 class NonterminalDecl(NamedAst):
     r"[u_name] = [expansions]"
     def __init__(self, *args):
@@ -396,7 +407,9 @@ class Identifier(TextAst):
     r"Identifier: [u_text]"
     
     def write_math_latex(self, out, ctx):
-        if self.u_text in ctx.terminals:
+        if self.u_text in ctx.macros:
+            out.write(ctx.macros[self.u_text])
+        elif self.u_text in ctx.terminals:
             out.write("\\texttt{%s}" % ctx.plain(self.u_text))
         elif len(self.u_text) == 1:
             out.write(ctx.math(self.u_text))

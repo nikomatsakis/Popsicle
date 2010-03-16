@@ -47,7 +47,7 @@ def tokenize(pos, span, u_text):
             column += 2
         
         elif is_word(u_char):
-            (column, token) = extract_while('WORD', column, is_word)
+            (column, token) = extract_while('IDENT', column, is_word)
             yield token
             
         elif u_char == u'{':
@@ -75,7 +75,7 @@ def tokenize(pos, span, u_text):
             yield token
     
         elif u_char == u'`':
-            (column, token) = extract_wrapped('MACRO', column, u'`')
+            (column, token) = extract_wrapped('IDENT', column, u'`')
             yield token
     
         else: 
@@ -87,7 +87,7 @@ def tokenize(pos, span, u_text):
     yield Token('EOL', pos.with_column(column), u"")
     
 ast_dict = {
-    'WORD': ast.Identifier,
+    'IDENT': ast.Identifier,
     'QUOTED': ast.Quoted,
     'LATEX': ast.Latex,
     'OP': ast.Operator,
@@ -143,6 +143,7 @@ re_comment = re.compile(ur"#.*$")
 re_section = re.compile(ur"\s*\[(.*)\]\s*$")
 re_terminals = re.compile(ur"> Terminals (.*)")
 re_heading = re.compile(ur"> Heading (.*)")
+re_macro = re.compile(ur"> Macro ([^ ]*) (.*)")
 re_write = re.compile(ur'> Write (grammar|type rules|dump) from "([^"]*)" to "([^"]*)"$')
 re_nonterm = re.compile(ur"([\w-]+)\s*=\s*(.*?)\s*(?:\\\\\\\\(.*))?$")
 re_nonterm_cont = re.compile(ur"\s*=\s*(.*?)\s*(?:\\\\\\\\(.*))?$")
@@ -250,6 +251,15 @@ class LineParser(object):
             if mo:
                 names_u = mo.group(1).split()
                 node = ast.TerminalDecl(self.pos, names_u)
+                ast_section.add_member(node)
+                self.next_line()
+                continue
+                
+            mo = re_macro.match(self.u_text)
+            if mo:
+                u_replace = mo.group(1)
+                latex = mo.group(2).strip().encode("ASCII")
+                node = ast.MacroDecl(self.pos, u_replace, latex)
                 ast_section.add_member(node)
                 self.next_line()
                 continue
