@@ -140,10 +140,11 @@ class ItemParser(object):
         
 re_empty = re.compile(ur"\s*$")
 re_comment = re.compile(ur"#.*$")
-re_section = re.compile(ur"\s*\[(.*)\]\s*$")
+re_section = re.compile(ur"\s*(\[+)(.*?)(\]+)\s*$")
 re_terminals = re.compile(ur"> Terminals (.*)")
-re_heading = re.compile(ur"> Heading (.*)")
+re_insert = re.compile(ur"> Insert (Start|Middle|End) (.*)")
 re_macro = re.compile(ur"> Macro ([^ ]*) (.*)")
+re_link = re.compile(ur"> Link ([a-zA-Z]+) (.*)")
 re_write = re.compile(ur'> Write (grammar|type rules|dump) from "([^"]*)" to "([^"]*)"$')
 re_nonterm = re.compile(ur"([\w-]+)\s*=\s*(.*?)\s*(?:\\\\\\\\(.*))?$")
 re_nonterm_cont = re.compile(ur"\s*=\s*(.*?)\s*(?:\\\\\\\\(.*))?$")
@@ -228,22 +229,33 @@ class LineParser(object):
         
     def parse(self):
         ast_file = ast.Section(ast.Position(self.filename, 1, 1), u'Root')
-        ast_section = ast_file
+        ast_sections = [ast_file]
     
         self.next_line()
         while self.has_line():
             if re_empty.match(self.u_text): 
                 self.next_line()
                 continue
+                
             if re_comment.match(self.u_text): 
                 self.next_line()
                 continue
     
             mo = re_section.match(self.u_text)
             if mo: 
-                u_name = mo.group(1).strip()
-                ast_section = ast.Section(self.pos, u_name)
-                ast_file.add_member(ast_section)
+                u_start = mo.group(1)
+                u_name = mo.group(2).strip()
+                u_term = mo.group(3)
+                
+                if len(u_start) != len(u_term):
+                    raise Exception(self.pos, self.u_text, ['Balanced brackets'])
+                    
+                depth = len(u_start)
+                assert depth > 0
+                if len(ast_sections) < depth:
+                    raise Exception(self.pos, self.u_term, ['Depth < %d' % len(ast_sections)])
+                ast_sections[depth:] = [ast.Section(self.pos, u_name)]
+                ast_sections[-2].add_member(ast_sections[-1])
                 self.next_line()
                 continue
         
@@ -251,7 +263,7 @@ class LineParser(object):
             if mo:
                 names_u = mo.group(1).split()
                 node = ast.TerminalDecl(self.pos, names_u)
-                ast_section.add_member(node)
+                ast_sections[-1].add_member(node)
                 self.next_line()
                 continue
                 
@@ -260,16 +272,25 @@ class LineParser(object):
                 u_replace = mo.group(1)
                 latex = mo.group(2).strip().encode("ASCII")
                 node = ast.MacroDecl(self.pos, u_replace, latex)
-                ast_section.add_member(node)
+                ast_sections[-1].add_member(node)
                 self.next_line()
                 continue
                 
-            mo = re_heading.match(self.u_text)
+            mo = re_link.match(self.u_text)
             if mo:
-                u_latex = mo.group(1).strip()
-                latex = u_latex.encode("ASCII")
-                node = ast.Heading(self.pos, latex)
-                ast_section.add_member(node)
+                kind = mo.group(1).encode("ASCII")
+                u_name = mo.group(2).strip()
+                node = ast.Link(self.pos, kind, u_name)
+                ast_sections[-1].add_member(node)
+                self.next_line()
+                continue
+                
+            mo = re_insert.match(self.u_text)
+            if mo:
+                kind = mo.group(1).encode("ASCII")
+                latex = mo.group(2).strip().encode("ASCII")
+                node = ast.Insert(self.pos, kind, latex)
+                ast_sections[-1].add_member(node)
                 self.next_line()
                 continue
                 
@@ -279,20 +300,20 @@ class LineParser(object):
                 u_section = mo.group(2).strip()
                 u_filenm = mo.group(3).strip()
                 node = ast.Write(self.pos, kind, u_section, u_filenm)
-                ast_section.add_member(node)
+                ast_sections[-1].add_member(node)
                 self.next_line()
                 continue
 
             mo = re_nonterm.match(self.u_text)
             if mo:
                 node = self.parse_nonterm(mo)
-                ast_section.add_member(node)
+                ast_sections[-1].add_member(node)
                 continue
                 
             mo = re_typerule.match(self.u_text)
             if mo:
                 node = self.parse_type_rule(mo)
-                ast_section.add_member(node)                    
+                ast_sections[-1].add_member(node)                    
                 continue
             
             raise Expected(self.pos, self.u_text, ['Valid Declaration'])

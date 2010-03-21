@@ -137,6 +137,7 @@ class Context(object):
         return "".join([self.plain_char(u) for u in u_text])
     
 class Ast(object):
+    
     def __init__(self, pos):
         self.pos = pos
         
@@ -146,6 +147,18 @@ class Ast(object):
         self.execute_directives(ctx)
         return ctx
         
+    @property
+    def writes_grammar_row(self):
+        return hasattr(self, 'write_grammar_row')
+        
+    @property
+    def writes_insert(self):
+        return hasattr(self, 'write_insert')
+        
+    @property
+    def writes_type_rule(self):
+        return hasattr(self, 'write_type_rule')
+        
     def execute_directives(self, ctx):
         "Executes any executable directives"
         pass
@@ -154,21 +167,9 @@ class Ast(object):
         "Adjusts the context object to account for things declared in this subtree"
         pass
         
-    def find_section(self, u_name):
-        "Returns the AST node for the named section"
+    def find_named_node(self, kind, u_name):
+        "Returns the AST node of the given kind and name"
         return None
-        
-    def write_grammar_row(self, out, ctx):
-        "Writes a nonterminal declaration into the grammar table, if appl."
-        return
-        
-    def write_type_rule(self, out, ctx):
-        "Writes a type rule into the grammar table, if appl."
-        return
-        
-    def write_heading(self, out, ctx):
-        "Writes a heading into the grammar table, if appl."
-        return
         
     def serialize(self, out):
         self.serialize_indent(out, 0, "Root: ")
@@ -198,24 +199,30 @@ class Ast(object):
                     
 class NamedAst(Ast):
     r"Abstract base class for named things."
+    
     def __init__(self, pos, u_name):
         Ast.__init__(self, pos)
         self.u_name = u_name
+        
+    def find_named_node(self, kind, u_name):
+        if kind == self.__class__.__name__ and u_name == self.u_name:
+            return self
+        return None
     
 class Section(NamedAst):
     r"[u_name]: [members]"
+    
     def __init__(self, *args):
         NamedAst.__init__(self, *args)
         self.members = []
     
-    def find_section(self, u_name):
+    def find_named_node(self, kind, u_name):
         "Returns the AST node for the named section"
-        if self.u_name == u_name:
+        if kind == 'Section' and self.u_name == u_name:
             return self
         for mem in self.members:
-            sec = mem.find_section(u_name)
-            if sec: 
-                return sec
+            node = mem.find_named_node(kind, u_name)
+            if node: return node
         return None
         
     def add_member(self, mem):
@@ -229,41 +236,55 @@ class Section(NamedAst):
     def append_context(self, ctx):
         for mem in self.members: 
             mem.append_context(ctx)
+            
+    @property
+    def subsections(self):
+        return [mem for mem in self.members if isinstance(mem, Section)]
+        
+    def write_inserts(self, kind, out, ctx):
+        for mem in self.members:
+            if mem.writes_insert:
+                mem.write_insert(kind, out, ctx)
         
     def write_grammar(self, out, ctx):
-        self.write_heading(out, ctx)
-        out.write("\\begin{tabular}{llll}\n")
-        self.write_grammar_row(out, ctx)
-        out.write("\\end{tabular}\n")
-        
-    def write_grammar_row(self, out, ctx):
-        for mem in self.members:
-            mem.write_grammar_row(out, ctx)
+        self.write_inserts('Start', out, ctx)
+        rowmems = [mem for mem in self.members if mem.writes_grammar_row]
+        if rowmems:
+            out.write("\\begin{tabular}{llll}\n")
+            for rowmem in rowmems:
+                rowmem.write_grammar_row(out, ctx)
+            out.write("\\end{tabular}\n")
+        self.write_inserts('Middle', out, ctx)
+        for mem in self.subsections: 
+            mem.write_grammar(out, ctx)
+        self.write_inserts('End', out, ctx)
         
     def write_type_rules(self, out, ctx):
-        ctx.sep = ""
-        self.write_heading(out, ctx)
-        out.write("\\begin{mathpar}\n")
-        self.write_type_rule(out, ctx)
-        out.write("\\end{mathpar}\n")
+        self.write_inserts('Start', out, ctx)
+        rulemems = [mem for mem in self.members if mem.writes_type_rule]
+        if rulemems:
+            out.write("\\begin{mathpar}\n")
+            ctx.sep = ""
+            for rulemem in rulemems: 
+                rulemem.write_type_rule(out, ctx)
+            out.write("\\end{mathpar}\n")
+        self.write_inserts('Middle', out, ctx)
+        for mem in self.subsections:
+            mem.write_type_rules(out, ctx)
+        self.write_inserts('End', out, ctx)
         
-    def write_type_rule(self, out, ctx):
-        for mem in self.members:
-            mem.write_type_rule(out, ctx)
-            
-    def write_heading(self, out, ctx):
-        for mem in self.members:
-            mem.write_heading(out, ctx)
-            
-class Heading(Ast):
-    r'> Heading [latex]'
+class Insert(Ast):
+    r'> Insert [kind] [latex]'
     
-    def __init__(self, pos, latex):
+    def __init__(self, pos, kind, latex):
         Ast.__init__(self, pos)
+        self.kind = kind
         self.latex = latex
         
-    def write_heading(self, out, ctx):
-        out.write(self.latex)
+    def write_insert(self, kind, out, ctx):
+        if kind == self.kind:
+            out.write(self.latex)
+            out.write("\n")
         
 class Write(Ast):
     r'> Write [kind] from "[u_section]" to "[u_filename]"'
@@ -274,7 +295,7 @@ class Write(Ast):
         self.u_filename = u_filename
     
     def execute_directives(self, ctx):
-        sec = ctx.root.find_section(self.u_section)
+        sec = ctx.root.find_named_node('Section', self.u_section)
         if not sec:
             sys.stderr.write("%s: No section named %r!\n" % (self.pos, self.u_section))
         else:
@@ -309,6 +330,7 @@ class MacroDecl(Ast):
         
 class NonterminalDecl(NamedAst):
     r"[u_name] = [expansions]"
+    
     def __init__(self, *args):
         NamedAst.__init__(self, *args)
         self.expansions = []
@@ -339,6 +361,23 @@ class NonterminalDecl(NamedAst):
         out.write(conc)
         out.write("\n")
 
+class Link(Ast): # Not NamedAst: the Link itself is not named u_name
+    r"> Link [kind] [u_name]"
+    
+    def __init__(self, pos, kind, u_name):
+        Ast.__init__(self, pos)
+        self.kind = kind
+        self.u_name = u_name
+    
+    def resolve(self, ctx):
+        return ctx.root.find_named_node(self.kind, self.u_name)
+        
+    def write_grammar_row(self, out, ctx):
+        return self.resolve(ctx).write_grammar_row(out, ctx)
+        
+    def write_type_rule(self, out, ctx):
+        return self.resolve(ctx).write_type_rule(out, ctx)
+
 class TypeRule(NamedAst):
     r"[u_name]: [premises] --- [conclusions]"
     def __init__(self, *args):
@@ -354,7 +393,7 @@ class TypeRule(NamedAst):
             for line in lines:
                 line.seq.write_math_latex(out, ctx)
                 out.write(r" \\")
-                if line.u_label:
+                if line.u_label is not None:
                     out.write(r"\\")
                 out.write("\n")
             out.write("}")
@@ -420,13 +459,13 @@ class Quoted(TextAst):
     r'"[u_text]"'
     
     def write_math_latex(self, out, ctx):
-        out.write("\\mathtt{%s}" % ctx.math(self.u_text))
+        out.write("\\texttt{%s}" % ctx.math(self.u_text))
         
 class Latex(TextAst):
     r"$[u_text]$"
 
     def write_math_latex(self, out, ctx):
-        out.write(u_text.encode("ASCII"))
+        out.write(self.u_text.encode("ASCII"))
             
 class Operator(TextAst):
     r"Operator: [u_text]"
