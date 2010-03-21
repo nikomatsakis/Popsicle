@@ -370,13 +370,18 @@ class Link(Ast): # Not NamedAst: the Link itself is not named u_name
         self.u_name = u_name
     
     def resolve(self, ctx):
-        return ctx.root.find_named_node(self.kind, self.u_name)
+        node = ctx.root.find_named_node(self.kind, self.u_name)
+        if not node:
+            sys.stderr.write("No node with name: %r" % self.u_name)
+        return node
         
     def write_grammar_row(self, out, ctx):
-        return self.resolve(ctx).write_grammar_row(out, ctx)
+        node = self.resolve(ctx)
+        if node: node.write_type_rule(out, ctx)
         
     def write_type_rule(self, out, ctx):
-        return self.resolve(ctx).write_type_rule(out, ctx)
+        node = self.resolve(ctx)
+        if node: node.write_type_rule(out, ctx)
 
 class TypeRule(NamedAst):
     r"[u_name]: [premises] --- [conclusions]"
