@@ -137,9 +137,8 @@ class ItemParser(object):
         node = ast_cls(self.token.pos, self.token.u_text)
         self.next()
         return node
-        
-re_empty = re.compile(ur"\s*$")
-re_comment = re.compile(ur"#.*$")
+
+re_skip = re.compile(ur"^\s*(?:#.*)?$")
 re_section = re.compile(ur"\s*(\[+)(.*?)(\]+)\s*$")
 re_terminals = re.compile(ur"> Terminals (.*)")
 re_insert = re.compile(ur"> Insert (Start|Middle|End) (.*)")
@@ -151,7 +150,6 @@ re_nonterm_cont = re.compile(ur"\s*=\s*(.*?)\s*(?:\\\\\\\\(.*))?$")
 re_typerule = re.compile(ur"([\w-]+):\s*$")
 re_typerule_cont = re.compile(ur"\s+(.*?)\s*(?:\\\\\\\\(.*))?$")
 re_sep = re.compile(ur"\s*---+\s*$")
-re_blank = re.compile(ur"\s*$")
 
 class LineParser(object):
     
@@ -161,9 +159,11 @@ class LineParser(object):
         
     def next_line(self):
         try:
-            if self.iterator:
+            while self.iterator:
                 (line, self.u_text) = self.iterator.next()
                 self.pos = ast.Position(self.filename, line + 1, 1)
+                if not re_skip.match(self.u_text):
+                    return
         except StopIteration:
             self.iterator = None
             self.u_text = u""
@@ -206,7 +206,7 @@ class LineParser(object):
         
         # Load the premises:
         while self.has_line():
-            if re_sep.match(self.u_text) or re_blank.match(self.u_text):
+            if re_sep.match(self.u_text):
                 self.next_line()
                 break
             mo = re_typerule_cont.match(self.u_text)
@@ -217,8 +217,6 @@ class LineParser(object):
             
         # Load the conclusion:
         while self.has_line():
-            if re_blank.match(self.u_text):
-                break
             mo = re_typerule_cont.match(self.u_text)
             if not mo:
                 break
@@ -233,14 +231,6 @@ class LineParser(object):
     
         self.next_line()
         while self.has_line():
-            if re_empty.match(self.u_text): 
-                self.next_line()
-                continue
-                
-            if re_comment.match(self.u_text): 
-                self.next_line()
-                continue
-    
             mo = re_section.match(self.u_text)
             if mo: 
                 u_start = mo.group(1)
