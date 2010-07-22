@@ -339,7 +339,7 @@ class NonterminalDecl(NamedAst):
         ctx.nonterminals.append(self.u_name)
     
     def write_grammar_row(self, out, ctx):
-        out.write("%s & :=" % ctx.plain(self.u_name))
+        out.write("\\textit{%s} & :=" % ctx.plain(self.u_name))
         
         sep = " & "
         conc = " & \\\\"
