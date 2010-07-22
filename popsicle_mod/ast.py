@@ -82,7 +82,7 @@ math_translations = {
     u'Ω': '\\Omega ',
 }
 
-u_escape = u"{}_"
+u_escape = u"{}#_"
 
 class Position(object):
     def __init__(self, filename, line, column):
