@@ -1,0 +1,40 @@
+#!/usr/bin/env popsicle UTF-8
+#
+# Demonstrates the syntax and features of Popsicle.
+# Also serves as the "unit-test".
+
+> Terminals c m f x fs cs xs this method final null Interval Guard Lock start mid end null
+
+> Macro env \mathcal{E}
+
+> Write grammar from "Grammar" to "grammar.tex"
+
+[Grammar]
+
+cdecl   = "class" c(tys fs) "extends" c(paths) "{" members "}"
+member  = gdecl 
+        = fdecl
+        = mdecl
+        = idecl
+        = ldecl 
+        = hbdecl
+gdecl   = "ghost" f
+fdecl   = ty f "guardedBy" path
+mdecl   = "void" m(tys xs) reqs "{" lstmts "}"
+req     = path rel path
+idecl   = "interval" f(path) "{" lstmts "}"
+ldecl   = path "locks" path
+hbdecl  = path "hb" path
+rel     = "hb"
+        = "eq"
+        = m
+lstmt   = x: stmt
+stmt    = x.f "=" x                         \\\\
+        = {x} = {expr}                      \\\\
+        = x "=" "new" c[fs "eq" exprs] (xs) \\\\
+        = x.m(xs)                           \\\\
+        = "assert" x wcrel x       
+expr    = x
+        = x.f
+        = x.m({x})
+ty      = c[fs rels paths]

@@ -328,19 +328,22 @@ class MacroDecl(Ast):
     def append_context(self, ctx):
         ctx.macros[self.u_replace] = self.latex
         
-class NonterminalDecl(NamedAst):
-    r"[u_name] = [expansions]"
+class NonterminalDecl(Ast):
+    r"[names_u] = [expansions]"
     
-    def __init__(self, *args):
-        NamedAst.__init__(self, *args)
+    def __init__(self, names_u):
+        Ast.__init__(self, *args)
+        self.names_u = names_u
         self.expansions = []
         
     def append_context(self, ctx):
-        ctx.nonterminals.append(self.u_name)
+        ctx.nonterminals.extend(self.names_u)
     
     def write_grammar_row(self, out, ctx):
-        out.write("\\textit{%s} & :=" % ctx.plain(self.u_name))
-        
+        for (idx, name) in enumerate(self.names_u):
+            if idx != 0: out.write(", ")
+            out.write("\\popsicleNonterminal{%s}" % ctx.plain(name))
+        out.write(" & \\popsicleDefine" % names)
         sep = " & "
         conc = " & \\\\"
         for expansion in self.expansions:
@@ -454,17 +457,17 @@ class Identifier(TextAst):
         if self.u_text in ctx.macros:
             out.write(ctx.macros[self.u_text])
         elif self.u_text in ctx.terminals:
-            out.write("\\texttt{%s}" % ctx.plain(self.u_text))
+            out.write("\\popsicleTerminal{%s}" % ctx.plain(self.u_text))
         elif len(self.u_text) == 1:
             out.write(ctx.math(self.u_text))
         else:
-            out.write("\\textit{%s}" % ctx.plain(self.u_text))
+            out.write("\\popsicleNonterminal{%s}" % ctx.plain(self.u_text))
         
 class Quoted(TextAst):
     r'"[u_text]"'
     
     def write_math_latex(self, out, ctx):
-        out.write("\\texttt{%s}" % ctx.math(self.u_text))
+        out.write("\\popsicleQuoted{%s}" % ctx.math(self.u_text))
         
 class Latex(TextAst):
     r"$[u_text]$"

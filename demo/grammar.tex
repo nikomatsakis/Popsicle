@@ -1,0 +1,43 @@
+\begin{tabular}{llll}
+\popsicleNonterminal{cdecl} & \popsicleDefine
+     & $\popsicleQuoted{class}\:\popsicleTerminal{c}(\popsicleNonterminal{tys}\:\popsicleTerminal{fs})\:\popsicleQuoted{extends}\:\popsicleTerminal{c}(\popsicleNonterminal{paths})\:\popsicleQuoted{\{}\:\popsicleNonterminal{members}\:\popsicleQuoted{\}}$ & \\
+\popsicleNonterminal{member} & \popsicleDefine
+     & $\popsicleNonterminal{gdecl}$
+     $\mid$ $\popsicleNonterminal{fdecl}$
+     $\mid$ $\popsicleNonterminal{mdecl}$
+     $\mid$ $\popsicleNonterminal{idecl}$
+     $\mid$ $\popsicleNonterminal{ldecl}$
+     $\mid$ $\popsicleNonterminal{hbdecl}$ & \\
+\popsicleNonterminal{gdecl} & \popsicleDefine
+     & $\popsicleQuoted{ghost}\:\popsicleTerminal{f}$ & \\
+\popsicleNonterminal{fdecl} & \popsicleDefine
+     & $\popsicleNonterminal{ty}\:\popsicleTerminal{f}\:\popsicleQuoted{guardedBy}\:\popsicleNonterminal{path}$ & \\
+\popsicleNonterminal{mdecl} & \popsicleDefine
+     & $\popsicleQuoted{void}\:\popsicleTerminal{m}(\popsicleNonterminal{tys}\:\popsicleTerminal{xs})\:\popsicleNonterminal{reqs}\:\popsicleQuoted{\{}\:\popsicleNonterminal{lstmts}\:\popsicleQuoted{\}}$ & \\
+\popsicleNonterminal{req} & \popsicleDefine
+     & $\popsicleNonterminal{path}\:\popsicleNonterminal{rel}\:\popsicleNonterminal{path}$ & \\
+\popsicleNonterminal{idecl} & \popsicleDefine
+     & $\popsicleQuoted{interval}\:\popsicleTerminal{f}(\popsicleNonterminal{path})\:\popsicleQuoted{\{}\:\popsicleNonterminal{lstmts}\:\popsicleQuoted{\}}$ & \\
+\popsicleNonterminal{ldecl} & \popsicleDefine
+     & $\popsicleNonterminal{path}\:\popsicleQuoted{locks}\:\popsicleNonterminal{path}$ & \\
+\popsicleNonterminal{hbdecl} & \popsicleDefine
+     & $\popsicleNonterminal{path}\:\popsicleQuoted{hb}\:\popsicleNonterminal{path}$ & \\
+\popsicleNonterminal{rel} & \popsicleDefine
+     & $\popsicleQuoted{hb}$
+     $\mid$ $\popsicleQuoted{eq}$
+     $\mid$ $\popsicleTerminal{m}$ & \\
+\popsicleNonterminal{lstmt} & \popsicleDefine
+     & $\popsicleTerminal{x}:\:\popsicleNonterminal{stmt}$ & \\
+\popsicleNonterminal{stmt} & \popsicleDefine
+     & $\popsicleTerminal{x}.\popsicleTerminal{f}\:\popsicleQuoted{=}\:\popsicleTerminal{x}$ &  \\
+     & $\mid$ & $\popsicleTerminal{x}\:=\:\popsicleNonterminal{expr}$ &  \\
+     & $\mid$ & $\popsicleTerminal{x}\:\popsicleQuoted{=}\:\popsicleQuoted{new}\:\popsicleTerminal{c}[\popsicleTerminal{f}\:\popsicleQuoted{eq}\:\popsicleNonterminal{expr}]\:(\popsicleTerminal{xs})$ &  \\
+     & $\mid$ & $\popsicleTerminal{x}.\popsicleTerminal{m}(\popsicleTerminal{xs})$ &  \\
+     & $\mid$ & $\popsicleQuoted{assert}\:\popsicleTerminal{x}\:\popsicleNonterminal{wcrel}\:\popsicleTerminal{x}$ & \\
+\popsicleNonterminal{expr} & \popsicleDefine
+     & $\popsicleTerminal{x}$
+     $\mid$ $\popsicleTerminal{x}.\popsicleTerminal{f}$
+     $\mid$ $\popsicleTerminal{x}.\popsicleTerminal{m}(\popsicleTerminal{x})$ & \\
+\popsicleNonterminal{ty} & \popsicleDefine
+     & $\popsicleTerminal{c}[\popsicleTerminal{fs}\:\popsicleNonterminal{rels}\:\popsicleNonterminal{paths}]$ & \\
+\end{tabular}

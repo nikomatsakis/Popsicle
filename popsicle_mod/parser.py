@@ -145,7 +145,7 @@ re_insert = re.compile(ur"> Insert (Start|Middle|End) (.*)")
 re_macro = re.compile(ur"> Macro ([^ ]*) (.*)")
 re_link = re.compile(ur"> Link ([a-zA-Z]+) (.*)")
 re_write = re.compile(ur'> Write (grammar|type rules|dump) from "([^"]*)" to "([^"]*)"$')
-re_nonterm = re.compile(ur"([\w-]+)\s*=\s*(.*?)\s*(?:\\\\\\\\(.*))?$")
+re_nonterm = re.compile(ur"((?:[\w-]+\s*)+)=\s*(.*?)\s*(?:\\\\\\\\(.*))?$")
 re_nonterm_cont = re.compile(ur"\s*=\s*(.*?)\s*(?:\\\\\\\\(.*))?$")
 re_typerule = re.compile(ur"([\w-]+):\s*$")
 re_typerule_cont = re.compile(ur"\s+(.*?)\s*(?:\\\\\\\\(.*))?$")
@@ -184,8 +184,8 @@ class LineParser(object):
         return ast.Line(self.pos, self.parse_seq(rhs_span), u_label)
         
     def parse_nonterm(self, mo):
-        u_name = mo.group(1).strip()
-        node = ast.NonterminalDecl(self.pos, u_name)
+        names_u = [u.strip() for u in mo.group(1).split()]
+        node = ast.NonterminalDecl(self.pos, names_u)
         node.expansions.append(self.parse_line_mo(mo, 2))
         self.next_line()
         
