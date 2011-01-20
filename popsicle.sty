@@ -1,4 +1,17 @@
 \newcommand{\popsicleQuoted}[1]{\texttt{#1}}
 \newcommand{\popsicleTerminal}[1]{\texttt{#1}}
+\newcommand{\popsicleUpcase}[1]{\textsc{#1}}
 \newcommand{\popsicleNonterminal}[1]{\texttt{#1}}
 \newcommand{\popsicleDefine}{:=}
+
+\newcommand{\popsicleGrammar}[1]{
+    \begin{tabular}{llll}
+    #1
+    \end{tabular}
+}
+
+\newcommand{\popsicleTypeRules}[1]{
+    \begin{mathpar}
+    #1
+    \end{mathpar}
+}

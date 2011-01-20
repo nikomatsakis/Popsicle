@@ -144,7 +144,8 @@ re_terminals = re.compile(ur"> Terminals (.*)")
 re_insert = re.compile(ur"> Insert (Start|Middle|End) (.*)")
 re_macro = re.compile(ur"> Macro ([^ ]*) (.*)")
 re_link = re.compile(ur"> Link ([a-zA-Z]+) (.*)")
-re_write = re.compile(ur'> Write (grammar|type rules|dump) from "([^"]*)" to "([^"]*)"$')
+re_write_sec = re.compile(ur'> Write (grammar|type rules|dump) from "([^"]*)" to "([^"]*)"$')
+re_write_node = re.compile(ur'> Write ([a-zA-Z]+) "([^"]*)" to "([^"]*)"$')
 re_nonterm = re.compile(ur"((?:[\w-]+\s*)+)=\s*(.*?)\s*(?:\\\\\\\\(.*))?$")
 re_nonterm_cont = re.compile(ur"\s*=\s*(.*?)\s*(?:\\\\\\\\(.*))?$")
 re_typerule = re.compile(ur"([\w-]+):\s*$")
@@ -284,12 +285,22 @@ class LineParser(object):
                 self.next_line()
                 continue
                 
-            mo = re_write.match(self.u_text)
+            mo = re_write_sec.match(self.u_text)
             if mo:
                 kind = mo.group(1).strip().encode("ASCII")
                 u_section = mo.group(2).strip()
                 u_filenm = mo.group(3).strip()
-                node = ast.Write(self.pos, kind, u_section, u_filenm)
+                node = ast.WriteSection(self.pos, kind, u_section, u_filenm)
+                ast_sections[-1].add_member(node)
+                self.next_line()
+                continue
+
+            mo = re_write_node.match(self.u_text)
+            if mo:
+                kind = mo.group(1).strip().encode("ASCII")
+                u_name = mo.group(2).strip()
+                u_filenm = mo.group(3).strip()
+                node = ast.WriteNode(self.pos, kind, u_name, u_filenm)
                 ast_sections[-1].add_member(node)
                 self.next_line()
                 continue

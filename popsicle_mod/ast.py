@@ -84,6 +84,12 @@ math_translations = {
 
 u_escape = u"{}#_"
 
+def start_grammar(out, ctx):
+    out.write("\\begin{tabular}{llll}\n")
+    
+def end_grammar(out, ctx):
+    out.write("\\end{tabular}\n")
+
 class Position(object):
     def __init__(self, filename, line, column):
         self.filename = filename
@@ -110,6 +116,7 @@ class Context(object):
         self.nonterminals = []
         self.macros = {}
         self.sep = ""
+        self.opened_files = []
         
     def math_char(self, u):
         if u in math_translations:
@@ -135,6 +142,22 @@ class Context(object):
     def plain(self, u_text):
         "Convert to latex suitable for inclusion in a non-math context"
         return "".join([self.plain_char(u) for u in u_text])
+        
+    def open_file(self, filenm):
+        if filenm not in self.opened_files: 
+            mode = 'w'
+            self.sep = ""
+            self.opened_files.append(filenm)
+        else: 
+            mode = 'a'
+            self.set_sep()
+        return open(filenm, mode)
+        
+    def clear_sep(self):
+        self.sep = ""
+        
+    def set_sep(self):
+        self.sep = "\n\\and\n"
     
 class Ast(object):
     
@@ -158,6 +181,10 @@ class Ast(object):
     @property
     def writes_type_rule(self):
         return hasattr(self, 'write_type_rule')
+        
+    @property
+    def writes_self(self):
+        return hasattr(self, 'write_self')
         
     def execute_directives(self, ctx):
         "Executes any executable directives"
@@ -250,10 +277,11 @@ class Section(NamedAst):
         self.write_inserts('Start', out, ctx)
         rowmems = [mem for mem in self.members if mem.writes_grammar_row]
         if rowmems:
-            out.write("\\begin{tabular}{llll}\n")
+            out.write("\popsicleGrammar{\n")
+            ctx.clear_sep()
             for rowmem in rowmems:
                 rowmem.write_grammar_row(out, ctx)
-            out.write("\\end{tabular}\n")
+            out.write("}\n")
         self.write_inserts('Middle', out, ctx)
         for mem in self.subsections: 
             mem.write_grammar(out, ctx)
@@ -263,11 +291,10 @@ class Section(NamedAst):
         self.write_inserts('Start', out, ctx)
         rulemems = [mem for mem in self.members if mem.writes_type_rule]
         if rulemems:
-            out.write("\\begin{mathpar}\n")
-            ctx.sep = ""
+            out.write("\popsicleTypeRules{\n")
             for rulemem in rulemems: 
                 rulemem.write_type_rule(out, ctx)
-            out.write("\\end{mathpar}\n")
+            out.write("}\n")
         self.write_inserts('Middle', out, ctx)
         for mem in self.subsections:
             mem.write_type_rules(out, ctx)
@@ -286,7 +313,7 @@ class Insert(Ast):
             out.write(self.latex)
             out.write("\n")
         
-class Write(Ast):
+class WriteSection(Ast):
     r'> Write [kind] from "[u_section]" to "[u_filename]"'
     def __init__(self, pos, kind, u_section, u_filename):
         Ast.__init__(self, pos)
@@ -300,7 +327,7 @@ class Write(Ast):
             sys.stderr.write("%s: No section named %r!\n" % (self.pos, self.u_section))
         else:
             filename = self.u_filename.encode("UTF-8")
-            out = open(filename, 'w')
+            out = ctx.open_file(filename)
             if self.kind == 'grammar':
                 sec.write_grammar(out, ctx)
             elif self.kind == 'type rules':
@@ -308,6 +335,27 @@ class Write(Ast):
             elif self.kind == 'dump':
                 sec.serialize(out)
             out.close()
+
+class WriteNode(Ast):
+    r'> Write [kind] "[u_name]" to "[u_filename]"'
+    def __init__(self, pos, kind, u_name, u_filename):
+        Ast.__init__(self, pos)
+        self.kind = kind
+        self.u_name = u_name
+        self.u_filename = u_filename
+    
+    def execute_directives(self, ctx):
+        node = ctx.root.find_named_node(self.kind, self.u_name)
+        if not node:
+            sys.stderr.write("%s: No %s named %r!\n" % (self.pos, self.kind, self.u_name))
+        else:
+            if node.writes_self:
+                filename = self.u_filename.encode("UTF-8")
+                out = ctx.open_file(filename)
+                node.write_self(out, ctx)
+                out.close()
+            else:
+                sys.stderr.write("%s: Nodes of kind %s cannot be written!\n" % (self.pos, self.kind))
         
 class TerminalDecl(Ast):
     r"> Terminals [names_u]"
@@ -344,6 +392,9 @@ class NonterminalDecl(Ast):
     def append_context(self, ctx):
         ctx.nonterminals.extend(self.names_u)
     
+    def write_self(self, out, ctx):
+        self.write_grammar_row(out, ctx)
+        
     def write_grammar_row(self, out, ctx):
         for (idx, name) in enumerate(self.names_u):
             if idx != 0: out.write(", ")
@@ -410,13 +461,16 @@ class TypeRule(NamedAst):
                     out.write(r"\\")
                 out.write("\n")
             out.write("}")
+            
+    def write_self(self, out, ctx):
+        self.write_type_rule(out, ctx)
         
     def write_type_rule(self, out, ctx):
         out.write(ctx.sep)
         out.write("\\inferrule[%s]" % ctx.plain(self.u_name))
         self.write_part(out, ctx, self.premises)
         self.write_part(out, ctx, self.conclusions)
-        ctx.sep = "\n\\and\n"
+        ctx.set_sep()
     
 class Line(Ast):
     r"[seq] \\\\ [u_label]"
@@ -465,6 +519,8 @@ class Identifier(TextAst):
             out.write("\\popsicleTerminal{%s}" % ctx.plain(self.u_text))
         elif len(self.u_text) == 1:
             out.write(ctx.math(self.u_text))
+        elif self.u_text.isupper():
+            out.write("\\popsicleUpcase{%s}" % ctx.plain(self.u_text.lower()))
         else:
             out.write("\\popsicleNonterminal{%s}" % ctx.plain(self.u_text))
         
