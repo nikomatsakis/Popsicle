@@ -331,11 +331,16 @@ class MacroDecl(Ast):
 class NonterminalDecl(Ast):
     r"[names_u] = [expansions]"
     
-    def __init__(self, names_u):
-        Ast.__init__(self, *args)
+    def __init__(self, pos, names_u):
+        Ast.__init__(self, pos)
         self.names_u = names_u
         self.expansions = []
         
+    def find_named_node(self, kind, u_name):
+        if kind == "Nonterminal" and u_name in self.names_u:
+            return self
+        return None
+    
     def append_context(self, ctx):
         ctx.nonterminals.extend(self.names_u)
     
@@ -343,7 +348,7 @@ class NonterminalDecl(Ast):
         for (idx, name) in enumerate(self.names_u):
             if idx != 0: out.write(", ")
             out.write("\\popsicleNonterminal{%s}" % ctx.plain(name))
-        out.write(" & \\popsicleDefine" % names)
+        out.write(" & \\popsicleDefine")
         sep = " & "
         conc = " & \\\\"
         for expansion in self.expansions:
@@ -380,7 +385,7 @@ class Link(Ast): # Not NamedAst: the Link itself is not named u_name
         
     def write_grammar_row(self, out, ctx):
         node = self.resolve(ctx)
-        if node: node.write_type_rule(out, ctx)
+        if node: node.write_grammar_row(out, ctx)
         
     def write_type_rule(self, out, ctx):
         node = self.resolve(ctx)
