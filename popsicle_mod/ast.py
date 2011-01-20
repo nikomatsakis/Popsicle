@@ -182,10 +182,6 @@ class Ast(object):
     def writes_type_rule(self):
         return hasattr(self, 'write_type_rule')
         
-    @property
-    def writes_self(self):
-        return hasattr(self, 'write_self')
-        
     def execute_directives(self, ctx):
         "Executes any executable directives"
         pass
@@ -194,8 +190,17 @@ class Ast(object):
         "Adjusts the context object to account for things declared in this subtree"
         pass
         
+    def append_nodes_of_kind(self, kind, list):
+        "Returns the AST node of the given kind and name"
+        if self.__class__.__name__ == kind: 
+            list.append(self)
+        
     def find_named_node(self, kind, u_name):
         "Returns the AST node of the given kind and name"
+        return None
+        
+    def write_all(self, ctx):
+        "Writes the data for this node into its own file in whatever way is appr"
         return None
         
     def serialize(self, out):
@@ -243,6 +248,11 @@ class Section(NamedAst):
         NamedAst.__init__(self, *args)
         self.members = []
     
+    def append_nodes_of_kind(self, kind, list):
+        "Returns the AST node of the given kind and name"
+        super(Section, self).append_nodes_of_kind(kind, list)
+        for mem in self.members: mem.append_nodes_of_kind(kind, list)
+        
     def find_named_node(self, kind, u_name):
         "Returns the AST node for the named section"
         if kind == 'Section' and self.u_name == u_name:
@@ -273,6 +283,10 @@ class Section(NamedAst):
             if mem.writes_insert:
                 mem.write_insert(kind, out, ctx)
         
+    def write_all(self, ctx):
+        for mem in self.members:
+            mem.write_all(ctx)
+
     def write_grammar(self, out, ctx):
         self.write_inserts('Start', out, ctx)
         rowmems = [mem for mem in self.members if mem.writes_grammar_row]
@@ -336,26 +350,13 @@ class WriteSection(Ast):
                 sec.serialize(out)
             out.close()
 
-class WriteNode(Ast):
-    r'> Write [kind] "[u_name]" to "[u_filename]"'
-    def __init__(self, pos, kind, u_name, u_filename):
+class WriteAll(Ast):
+    r'> Write all'
+    def __init__(self, pos):
         Ast.__init__(self, pos)
-        self.kind = kind
-        self.u_name = u_name
-        self.u_filename = u_filename
-    
+        
     def execute_directives(self, ctx):
-        node = ctx.root.find_named_node(self.kind, self.u_name)
-        if not node:
-            sys.stderr.write("%s: No %s named %r!\n" % (self.pos, self.kind, self.u_name))
-        else:
-            if node.writes_self:
-                filename = self.u_filename.encode("UTF-8")
-                out = ctx.open_file(filename)
-                node.write_self(out, ctx)
-                out.close()
-            else:
-                sys.stderr.write("%s: Nodes of kind %s cannot be written!\n" % (self.pos, self.kind))
+        ctx.root.write_all(ctx)
         
 class TerminalDecl(Ast):
     r"> Terminals [names_u]"
@@ -392,9 +393,6 @@ class NonterminalDecl(Ast):
     def append_context(self, ctx):
         ctx.nonterminals.extend(self.names_u)
     
-    def write_self(self, out, ctx):
-        self.write_grammar_row(out, ctx)
-        
     def write_grammar_row(self, out, ctx):
         for (idx, name) in enumerate(self.names_u):
             if idx != 0: out.write(", ")
@@ -462,8 +460,11 @@ class TypeRule(NamedAst):
                 out.write("\n")
             out.write("}")
             
-    def write_self(self, out, ctx):
+    def write_all(self, ctx):
+        filename = self.u_name.encode("UTF-8")+".tex"
+        out = ctx.open_file(filename)
         self.write_type_rule(out, ctx)
+        out.close()
         
     def write_type_rule(self, out, ctx):
         out.write(ctx.sep)
