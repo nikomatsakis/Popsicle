@@ -80,6 +80,8 @@ math_translations = {
     u'Χ': r'X',
     u'Ψ': '\\Psi ',
     u'Ω': '\\Omega ',
+    u'>': '>',
+    u'<': '<'
 }
 
 u_escape = u"{}#_"
@@ -393,6 +395,13 @@ class NonterminalDecl(Ast):
     def append_context(self, ctx):
         ctx.nonterminals.extend(self.names_u)
     
+    def write_all(self, ctx):
+        u_name = self.names_u[0]
+        filename = u_name.encode("UTF-8")+".tex"
+        out = ctx.open_file(filename)
+        self.write_grammar_row(out, ctx)
+        out.close()
+
     def write_grammar_row(self, out, ctx):
         for (idx, name) in enumerate(self.names_u):
             if idx != 0: out.write(", ")
@@ -529,7 +538,7 @@ class Quoted(TextAst):
     r'"[u_text]"'
     
     def write_math_latex(self, out, ctx):
-        out.write("\\popsicleQuoted{%s}" % ctx.math(self.u_text))
+        out.write("\\popsicleQuoted{%s}" % ctx.plain(self.u_text))
         
 class Latex(TextAst):
     r"$[u_text]$"

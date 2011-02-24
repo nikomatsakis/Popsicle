@@ -206,8 +206,10 @@ class LineParser(object):
         self.next_line()
         
         # Load the premises:
+        separated = False
         while self.has_line():
             if re_sep.match(self.u_text):
+                separated = True
                 self.next_line()
                 break
             mo = re_typerule_cont.match(self.u_text)
@@ -215,6 +217,9 @@ class LineParser(object):
                 break
             node.premises.append(self.parse_line_mo(mo, 1))
             self.next_line()
+            
+        if not separated:
+            raise Expected(self.pos, self.u_text, ['Type Rule Separator (----)'])
             
         # Load the conclusion:
         while self.has_line():
