@@ -168,6 +168,8 @@ re_nonterm_cont = recompile(ur"\s*=\s*(.*?)\s*(?:\\\\\\\\(.*))?$")
 re_typerule = recompile(ur"([\w-]+):\s*$")
 re_typerule_cont = recompile(ur"\s+(.*?)\s*(?:\\\\\\\\(.*))?$")
 re_sep = recompile(ur"\s*---+\s*$")
+re_subst = recompile(ur"([\w-]+): substitute into ([a-zA-Z]+) ([\w-]+)\s*$")
+re_subst_const = recompile(ur"\s+([^\s]*)\s*=>\s*(.*)$")
 
 class LineParser(object):
     
@@ -247,6 +249,27 @@ class LineParser(object):
             self.next_line()
         
         return node
+        
+    def parse_subst(self, mo):
+        u_name = mo.group(1)
+        kind = mo.group(2).encode('ASCII')
+        u_orig_name = mo.group(3)
+        snode = ast.Substitution(self.pos, u_name, kind, u_orig_name)
+        self.next_line()
+        
+        # Load substitutions:
+        while self.has_line():
+            mo = re_subst_const.match(self.u_text)
+            if not mo: 
+                break
+                
+            from_seq = self.parse_seq(mo.span(1))
+            to_seq = self.parse_seq(mo.span(2))
+            mnode = ast.Mapping(self.pos, from_seq, to_seq)
+            snode.substitutions.append(mnode)
+            self.next_line()
+        
+        return snode
         
     def parse(self):
         ast_file = ast.Section(ast.Position(self.filename, 1, 1), u'Root')
@@ -342,6 +365,12 @@ class LineParser(object):
             if mo:
                 node = self.parse_type_rule(mo)
                 ast_sections[-1].add_member(node)                    
+                continue
+                
+            mo = re_subst.match(self.u_text)
+            if mo:
+                node = self.parse_subst(mo)
+                ast_sections[-1].add_member(node)
                 continue
             
             raise Expected(self.pos, self.u_text, ['Valid Declaration'])

@@ -232,7 +232,7 @@ class Ast(object):
                     out.write(": ")
                     out.write(repr(item))
                     out.write("\n")
-                    
+    
 class NamedAst(Ast):
     r"Abstract base class for named things."
     
@@ -460,6 +460,50 @@ class Link(Ast): # Not NamedAst: the Link itself is not named u_name
         node = self.resolve(ctx)
         if node: node.write_type_rule(out, ctx)
 
+class Substitution(NamedAst):
+    r"[u_name] is [kind] [u_orig_name] where:"
+    def __init__(self, pos, u_name, kind, u_orig_name):
+        NamedAst.__init__(self, pos, u_name)
+        self.kind = kind
+        self.u_orig_name = u_orig_name
+        self.substitutions = []
+        
+    def resolve(self, ctx):
+        orig = ctx.root.find_named_node(self.kind, self.u_orig_name)
+        if not orig:
+            sys.stderr.write("No %s with name: %r" % (self.kind, self.u_name))
+            
+        m = {}
+        for subst in self.substitutions:
+            subst.add_to_map(m)
+            
+        return orig.subst(self.pos, self.u_name, m) if orig else None
+        
+    def write_all(self, ctx):
+        node = self.resolve(ctx)
+        if node: node.write_all(ctx)
+
+    def write_grammar_row(self, out, ctx):
+        node = self.resolve(ctx)
+        if node: node.write_grammar_row(out, ctx)
+        
+    def write_type_rule(self, out, ctx):
+        node = self.resolve(ctx)
+        if node: node.write_type_rule(out, ctx)
+        
+class Mapping(Ast):
+    r"[from_seq] => [to_seq]"
+    def __init__(self, pos, from_seq, to_seq):
+        Ast.__init__(self, pos)
+        self.from_seq = from_seq
+        self.to_seq = to_seq
+        
+    def add_to_map(self, m):
+        if len(self.from_seq.items) == 1:
+            m[self.from_seq.items[0]] = self.to_seq
+        else:
+            m[self.from_seq] = self.to_seq
+        
 class TypeRule(NamedAst):
     r"[u_name]: [premises] --- [conclusions]"
     def __init__(self, *args):
@@ -492,6 +536,12 @@ class TypeRule(NamedAst):
         self.write_part(out, ctx, self.premises)
         self.write_part(out, ctx, self.conclusions)
         ctx.set_sep()
+        
+    def subst(self, pos, u_name, m):
+        tr = TypeRule(pos, u_name)
+        tr.premises = [p.subst(m) for p in self.premises]
+        tr.conclusions = [c.subst(m) for c in self.conclusions]
+        return tr
     
 class Line(Ast):
     r"[seq] \\\\ [u_label]"
@@ -501,7 +551,22 @@ class Line(Ast):
         # Note: if u_label is None, there was no \\\\.
         self.u_label = u_label
         
-class Subscript(Ast):
+    def subst(self, m):
+        return Line(self.pos, self.seq.subst(m), self.u_label)
+        
+class Expr(Ast):
+    def __eq__(self, n):
+        if self.__class__ == n.__class__:
+            for (k, v) in self.__dict__.items():
+                if k != "pos" and not (v == getattr(n, k)):
+                    return False
+            return True
+        return False
+        
+    def __hash__(self):
+        return 0 # too lazy to make a real hash code
+        
+class Subscript(Expr):
     r"[base]_{[sub]}"
     def __init__(self, pos, base, sub):
         Ast.__init__(self, pos)
@@ -513,8 +578,16 @@ class Subscript(Ast):
         out.write("_{")
         self.sub.write_math_latex(out, ctx)
         out.write("}")
+        
+    def __repr__(self):
+        return "%r_%r" % (self.base, self.sub)
+            
+    def subst(self, m):
+        if self in m:
+            return m[self]
+        return Subscript(self.pos, self.base.subst(m), self.sub.subst(m))
 
-class Seq(Ast):
+class Seq(Expr):
     r"{[items]}"
     def __init__(self, pos, items):
         Ast.__init__(self, pos)
@@ -523,16 +596,32 @@ class Seq(Ast):
     def write_math_latex(self, out, ctx):
         for item in self.items:
             item.write_math_latex(out, ctx)
+            
+    def __repr__(self):
+        return "{%r}" % (self.items,)
+            
+    def subst(self, m):
+        if self in m:
+            return m[self]
+        return Seq(self.pos, [i.subst(m) for i in self.items])
 
-class TextAst(Ast):
+class TextAst(Expr):
     r"Abstract base class for formatting of u_text"
     def __init__(self, pos, u_text):
         Ast.__init__(self, pos)
         self.u_text = u_text
+            
+    def subst(self, m):
+        if self.u_text in m:
+            return m[self.u_text]
+        return self
         
 class Identifier(TextAst):
     r"Identifier: [u_text]"
     
+    def __repr__(self):
+        return "Identifier(%s)" % repr(self.u_text)
+            
     def write_math_latex(self, out, ctx):
         if self.u_text in ctx.macros:
             out.write(ctx.macros[self.u_text])
@@ -550,24 +639,39 @@ class Identifier(TextAst):
 class Quoted(TextAst):
     r'"[u_text]"'
     
+    def __repr__(self):
+        return "'%s'" % repr(self.u_text)
+            
     def write_math_latex(self, out, ctx):
         out.write("\\popsicleQuoted{%s}" % ctx.plain(self.u_text))
         
 class Latex(TextAst):
     r"$[u_text]$"
 
+    def __repr__(self):
+        return "$%s$" % repr(self.u_text)
+            
     def write_math_latex(self, out, ctx):
         out.write(self.u_text.encode("ASCII"))
+        
+    def subst(self, m):
+        return self
             
 class Operator(TextAst):
     r"Operator: [u_text]"
     
+    def __repr__(self):
+        return "oper(%s)" % repr(self.u_text)
+            
     def write_math_latex(self, out, ctx):
         out.write(ctx.math(self.u_text))
     
 class Whitespace(TextAst):
     r"Whitespace: [u_text]"
 
+    def __repr__(self):
+        return "ws(%s)" % repr(self.u_text)
+            
     def write_math_latex(self, out, ctx):
         # Latex spaces: \!, \, \: \;, \quad, \qquad
         if self.u_text == u" ": out.write("\:")
