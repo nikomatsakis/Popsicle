@@ -4,6 +4,7 @@ import re, sys
 
 reserved_chars = u"|{}\\\"_'^`"
 math_translations = {
+    u'•': '\\bullet',
     u'≠': '\\neq ',
     u'≤': '\\leq ',
     u'≥': '\\geq ',
@@ -115,6 +116,7 @@ class Context(object):
     def __init__(self, root):
         self.root = root
         self.terminals = []
+        self.quoted = []
         self.nonterminals = []
         self.macros = {}
         self.sep = ""
@@ -369,6 +371,15 @@ class TerminalDecl(Ast):
     def append_context(self, ctx):
         ctx.terminals.extend(self.names_u)
         
+class QuotedDecl(Ast):
+    r"> Quoted [names_u]"
+    def __init__(self, pos, names_u):
+        Ast.__init__(self, pos)
+        self.names_u = names_u
+        
+    def append_context(self, ctx):
+        ctx.quoted.extend(self.names_u)
+        
 class MacroDecl(Ast):
     r"> Macro [u_replace] [latex]"
     def __init__(self, pos, u_replace, latex):
@@ -527,6 +538,8 @@ class Identifier(TextAst):
             out.write(ctx.macros[self.u_text])
         elif self.u_text in ctx.terminals:
             out.write("\\popsicleTerminal{%s}" % ctx.plain(self.u_text))
+        elif self.u_text in ctx.quoted:
+            out.write("\\popsicleQuoted{%s}" % ctx.plain(self.u_text))
         elif len(self.u_text) == 1:
             out.write(ctx.math(self.u_text))
         elif self.u_text.isupper():

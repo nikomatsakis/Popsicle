@@ -137,20 +137,37 @@ class ItemParser(object):
         node = ast_cls(self.token.pos, self.token.u_text)
         self.next()
         return node
+    
+# This little class is useful for debugging reg exp performance:
+class ReWrap(object):
+    def __init__(self, text, re):
+        self.text = text
+        self.re = re
+    
+    def match(self, text):
+        print "match: %s against %r" % (self.text, text)
+        mo = self.re.match(text)
+        print "  done"
+        return mo
+    
+def recompile(text):
+    #return ReWrap(text, re.compile(text))
+    return re.compile(text)
 
-re_skip = re.compile(ur"^\s*(?:#.*)?$")
-re_section = re.compile(ur"\s*(\[+)(.*?)(\]+)\s*$")
-re_terminals = re.compile(ur"> Terminals (.*)")
-re_insert = re.compile(ur"> Insert (Start|Middle|End) (.*)")
-re_macro = re.compile(ur"> Macro ([^ ]*) (.*)")
-re_link = re.compile(ur"> Link ([a-zA-Z]+) (.*)")
-re_write_sec = re.compile(ur'> Write (grammar|type rules|dump) from "([^"]*)" to "([^"]*)"$')
-re_write_all = re.compile(ur'> Write all\s*$')
-re_nonterm = re.compile(ur"((?:[\w-]+\s*)+)=\s*(.*?)\s*(?:\\\\\\\\(.*))?$")
-re_nonterm_cont = re.compile(ur"\s*=\s*(.*?)\s*(?:\\\\\\\\(.*))?$")
-re_typerule = re.compile(ur"([\w-]+):\s*$")
-re_typerule_cont = re.compile(ur"\s+(.*?)\s*(?:\\\\\\\\(.*))?$")
-re_sep = re.compile(ur"\s*---+\s*$")
+re_skip = recompile(ur"^\s*(?:#.*)?$")
+re_section = recompile(ur"\s*(\[+)(.*?)(\]+)\s*$")
+re_terminals = recompile(ur"> Terminals (.*)")
+re_quoted = recompile(ur"> Quoted (.*)")
+re_insert = recompile(ur"> Insert (Start|Middle|End) (.*)")
+re_macro = recompile(ur"> Macro ([^ ]*) (.*)")
+re_link = recompile(ur"> Link ([a-zA-Z]+) (.*)")
+re_write_sec = recompile(ur'> Write (grammar|type rules|dump) from "([^"]*)" to "([^"]*)"$')
+re_write_all = recompile(ur'> Write all\s*$')
+re_nonterm = recompile(ur"([\w-]+(?:\s+[\w-]+)*)\s*=\s*(.*?)\s*(?:\\\\\\\\(.*))?$")
+re_nonterm_cont = recompile(ur"\s*=\s*(.*?)\s*(?:\\\\\\\\(.*))?$")
+re_typerule = recompile(ur"([\w-]+):\s*$")
+re_typerule_cont = recompile(ur"\s+(.*?)\s*(?:\\\\\\\\(.*))?$")
+re_sep = recompile(ur"\s*---+\s*$")
 
 class LineParser(object):
     
@@ -259,6 +276,14 @@ class LineParser(object):
             if mo:
                 names_u = mo.group(1).split()
                 node = ast.TerminalDecl(self.pos, names_u)
+                ast_sections[-1].add_member(node)
+                self.next_line()
+                continue
+                
+            mo = re_quoted.match(self.u_text)
+            if mo:
+                names_u = mo.group(1).split()
+                node = ast.QuotedDecl(self.pos, names_u)
                 ast_sections[-1].add_member(node)
                 self.next_line()
                 continue
