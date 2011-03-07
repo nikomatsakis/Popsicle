@@ -477,7 +477,8 @@ class Substitution(NamedAst):
         m = {}
         for subst in self.substitutions:
             subst.add_to_map(m)
-            
+        print m
+
         return orig.subst(self.pos, self.u_name, m) if orig else None
         
     def write_all(self, ctx):
@@ -616,8 +617,8 @@ class TextAst(Expr):
         self.u_text = u_text
             
     def subst(self, m):
-        if self.u_text in m:
-            return m[self.u_text]
+        if self in m:
+            return m[self]
         return self
         
 class Identifier(TextAst):
