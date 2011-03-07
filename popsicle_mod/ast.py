@@ -121,6 +121,7 @@ class Context(object):
         self.macros = {}
         self.sep = ""
         self.opened_files = []
+        self.anonymous = u"Anon-"
         
     def math_char(self, u):
         if u in math_translations:
@@ -532,7 +533,10 @@ class TypeRule(NamedAst):
         
     def write_type_rule(self, out, ctx):
         out.write(ctx.sep)
-        out.write("\\inferrule[%s]" % ctx.plain(self.u_name))
+        if self.u_name.startswith(ctx.anonymous):
+            out.write("\\inferrule")
+        else:
+            out.write("\\inferrule[%s]" % ctx.plain(self.u_name))
         self.write_part(out, ctx, self.premises)
         self.write_part(out, ctx, self.conclusions)
         ctx.set_sep()
