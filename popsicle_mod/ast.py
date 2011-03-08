@@ -477,7 +477,6 @@ class Substitution(NamedAst):
         m = {}
         for subst in self.substitutions:
             subst.add_to_map(m)
-        print m
 
         return orig.subst(self.pos, self.u_name, m) if orig else None
         
