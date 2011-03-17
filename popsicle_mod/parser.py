@@ -62,6 +62,14 @@ def tokenize(pos, span, u_text):
             yield Token('UNDER', pos.with_column(column), u_char)
             column += 1
             
+        elif u_char == u"^":
+            yield Token('OVER', pos.with_column(column), u_char)
+            column += 1
+            
+        elif u_char == u"'":
+            yield Token('PRIME', pos.with_column(column), u_char)
+            column += 1
+            
         elif u_char == u'"':
             (column, token) = extract_wrapped('QUOTED', column, u'"')
             yield token
@@ -109,15 +117,21 @@ class ItemParser(object):
         return nodes
             
     def item(self):
-        over = self.part()
-        
-        if self.token.kind == 'UNDER':
-            self.next()
-            under = self.part()
-            node = ast.Subscript(self.token.pos, over, under)
-            return node
-            
-        return over
+        node = self.part()
+        while self.token.kind in ['UNDER', 'OVER', 'PRIME']:
+            pos = self.token.pos
+            if self.token.kind == 'UNDER':
+                self.next()
+                under = self.part()
+                node = ast.Subscript(pos, node, under)
+            elif self.token.kind == 'PRIME':
+                self.next()
+                node = ast.Prime(pos, node)
+            elif self.token.kind == 'OVER':
+                self.next()
+                over = self.part()
+                node = ast.Supscript(pos, node, over)
+        return node
         
     def part(self):
         if self.token.kind == 'LCURLY':

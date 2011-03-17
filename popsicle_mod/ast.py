@@ -570,6 +570,45 @@ class Expr(Ast):
     def __hash__(self):
         return 0 # too lazy to make a real hash code
         
+class Prime(Expr):
+    r"[base]'"
+    def __init__(self, pos, base):
+        Ast.__init__(self, pos)
+        self.base = base
+    
+    def write_math_latex(self, out, ctx):
+        self.base.write_math_latex(out, ctx)
+        out.write("'")
+        
+    def __repr__(self):
+        return "%r'" % (self.base, self.sub)
+            
+    def subst(self, m):
+        if self in m:
+            return m[self]
+        return Prime(self.pos, self.base.subst(m))
+
+class Supscript(Expr):
+    r"[base]^{[sup]}"
+    def __init__(self, pos, base, sup):
+        Ast.__init__(self, pos)
+        self.base = base
+        self.sup = sup
+    
+    def write_math_latex(self, out, ctx):
+        self.base.write_math_latex(out, ctx)
+        out.write("^{")
+        self.sup.write_math_latex(out, ctx)
+        out.write("}")
+        
+    def __repr__(self):
+        return "%r^%r" % (self.base, self.sup)
+            
+    def subst(self, m):
+        if self in m:
+            return m[self]
+        return Supscript(self.pos, self.base.subst(m), self.sup.subst(m))
+
 class Subscript(Expr):
     r"[base]_{[sub]}"
     def __init__(self, pos, base, sub):
