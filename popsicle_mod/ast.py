@@ -582,11 +582,11 @@ class Prime(Expr):
         
     def __repr__(self):
         return "%r'" % (self.base, self.sub)
-            
+
     def subst(self, m):
         if self in m:
             return m[self]
-        return Prime(self.pos, self.base.subst(m))
+        return self # foo' does not become bar' when foo=>bar
 
 class Supscript(Expr):
     r"[base]^{[sup]}"
@@ -624,11 +624,11 @@ class Subscript(Expr):
         
     def __repr__(self):
         return "%r_%r" % (self.base, self.sub)
-            
+
     def subst(self, m):
         if self in m:
             return m[self]
-        return Subscript(self.pos, self.base.subst(m), self.sub.subst(m))
+        return self # foo_2 does not become bar_2 when foo=>bar
 
 class Seq(Expr):
     r"{[items]}"
